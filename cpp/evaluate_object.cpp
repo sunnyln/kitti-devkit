@@ -412,7 +412,28 @@ vector<double> getThresholds(vector<double> &v, double n_groundtruth)
   return t;
 }
 
-void cleanData(CLASSES current_class, const vector<tGroundtruth> &gt, const vector<tDetection> &det, vector<int32_t> &ignored_gt, vector<tGroundtruth> &dc, vector<int32_t> &ignored_det, int32_t &n_gt, DIFFICULTY difficulty)
+/**
+ * @brief 
+ * 
+ * @param current_class 
+ * @param gt GT of a frame
+ * @param det detection of a frame
+ * @param ignored_gt ignore flag of `gt`
+ *            0: current class and not ignored
+ *            1: neighboring class, or current class but ignored
+ *           -1: other class
+ * @param dc DontCare objects in `gt`
+ * @param ignored_det ignore flag of `det`
+ *            1: short object
+ *            0: current class and not short object
+ *           -1: other class and not short object
+ * @param n_gt the number of current class and not ignored gt
+ * @param difficulty input, difficulty level
+ */
+
+void cleanData(CLASSES current_class, const vector<tGroundtruth> &gt, const vector<tDetection> &det, 
+               vector<int32_t> &ignored_gt, vector<tGroundtruth> &dc, vector<int32_t> &ignored_det, 
+               int32_t &n_gt, DIFFICULTY difficulty)
 {
 
   // extract ground truth bounding boxes for current evaluation class
@@ -424,6 +445,9 @@ void cleanData(CLASSES current_class, const vector<tGroundtruth> &gt, const vect
 
     // neighboring classes are ignored ("van" for "car" and "person_sitting" for "pedestrian")
     // (lower/upper cases are ignored)
+    // 1: current class
+    // 0: neighboring class
+    // -1: other class
     int32_t valid_class;
 
     // all classes without a neighboring class
@@ -442,6 +466,8 @@ void cleanData(CLASSES current_class, const vector<tGroundtruth> &gt, const vect
 
     // ground truth is ignored, if occlusion, truncation exceeds the difficulty or ground truth is too small
     // (doesn't count as FN nor TP, although detections may be assigned)
+    // true: a high evel of occlusion or truncation, or ground truth is too short
+    // false: otherwise
     bool ignore = false;
     if (gt[i].occlusion > MAX_OCCLUSION[difficulty] || gt[i].truncation > MAX_TRUNCATION[difficulty] || height <= MIN_HEIGHT[difficulty])
       ignore = true;
@@ -708,6 +734,7 @@ bool eval_class(FILE *fp_det, FILE *fp_ori, CLASSES current_class,
   }
 
   // get scores that must be evaluated for recall discretization
+  // threshold vector for mAP_41, AP_41....
   thresholds = getThresholds(v, n_gt);
 
   // compute TP,FP,FN for relevant scores
@@ -903,7 +930,9 @@ bool eval(string result_sha, Mail *mail)
       if (compute_aos)
         fp_ori = fopen((result_dir + "/stats_" + CLASS_NAMES[c] + "_orientation.txt").c_str(), "w");
       vector<double> precision[3], aos[3];
-      if (!eval_class(fp_det, fp_ori, cls, groundtruth, detections, compute_aos, imageBoxOverlap, precision[0], aos[0], EASY, IMAGE) || !eval_class(fp_det, fp_ori, cls, groundtruth, detections, compute_aos, imageBoxOverlap, precision[1], aos[1], MODERATE, IMAGE) || !eval_class(fp_det, fp_ori, cls, groundtruth, detections, compute_aos, imageBoxOverlap, precision[2], aos[2], HARD, IMAGE))
+      if (!eval_class(fp_det, fp_ori, cls, groundtruth, detections, compute_aos, imageBoxOverlap, precision[0], aos[0], EASY, IMAGE) || 
+          !eval_class(fp_det, fp_ori, cls, groundtruth, detections, compute_aos, imageBoxOverlap, precision[1], aos[1], MODERATE, IMAGE) || 
+          !eval_class(fp_det, fp_ori, cls, groundtruth, detections, compute_aos, imageBoxOverlap, precision[2], aos[2], HARD, IMAGE))
       {
         mail->msg("%s evaluation failed.", CLASS_NAMES[c].c_str());
         return false;
@@ -932,7 +961,9 @@ bool eval(string result_sha, Mail *mail)
       mail->msg("Starting bird's eye evaluation (%s) ...", CLASS_NAMES[c].c_str());
       fp_det = fopen((result_dir + "/stats_" + CLASS_NAMES[c] + "_detection_ground.txt").c_str(), "w");
       vector<double> precision[3], aos[3];
-      if (!eval_class(fp_det, fp_ori, cls, groundtruth, detections, compute_aos, groundBoxOverlap, precision[0], aos[0], EASY, GROUND) || !eval_class(fp_det, fp_ori, cls, groundtruth, detections, compute_aos, groundBoxOverlap, precision[1], aos[1], MODERATE, GROUND) || !eval_class(fp_det, fp_ori, cls, groundtruth, detections, compute_aos, groundBoxOverlap, precision[2], aos[2], HARD, GROUND))
+      if (!eval_class(fp_det, fp_ori, cls, groundtruth, detections, compute_aos, groundBoxOverlap, precision[0], aos[0], EASY, GROUND) || 
+          !eval_class(fp_det, fp_ori, cls, groundtruth, detections, compute_aos, groundBoxOverlap, precision[1], aos[1], MODERATE, GROUND) || 
+          !eval_class(fp_det, fp_ori, cls, groundtruth, detections, compute_aos, groundBoxOverlap, precision[2], aos[2], HARD, GROUND))
       {
         mail->msg("%s evaluation failed.", CLASS_NAMES[c].c_str());
         return false;
@@ -953,7 +984,9 @@ bool eval(string result_sha, Mail *mail)
       mail->msg("Starting 3D evaluation (%s) ...", CLASS_NAMES[c].c_str());
       fp_det = fopen((result_dir + "/stats_" + CLASS_NAMES[c] + "_detection_3d.txt").c_str(), "w");
       vector<double> precision[3], aos[3];
-      if (!eval_class(fp_det, fp_ori, cls, groundtruth, detections, compute_aos, box3DOverlap, precision[0], aos[0], EASY, BOX3D) || !eval_class(fp_det, fp_ori, cls, groundtruth, detections, compute_aos, box3DOverlap, precision[1], aos[1], MODERATE, BOX3D) || !eval_class(fp_det, fp_ori, cls, groundtruth, detections, compute_aos, box3DOverlap, precision[2], aos[2], HARD, BOX3D))
+      if (!eval_class(fp_det, fp_ori, cls, groundtruth, detections, compute_aos, box3DOverlap, precision[0], aos[0], EASY, BOX3D) || 
+          !eval_class(fp_det, fp_ori, cls, groundtruth, detections, compute_aos, box3DOverlap, precision[1], aos[1], MODERATE, BOX3D) || 
+          !eval_class(fp_det, fp_ori, cls, groundtruth, detections, compute_aos, box3DOverlap, precision[2], aos[2], HARD, BOX3D))
       {
         mail->msg("%s evaluation failed.", CLASS_NAMES[c].c_str());
         return false;
